@@ -42,9 +42,14 @@ EasyRemoveBG is a professional-grade, native macOS application for local image b
 1. Open the project in **Xcode 15.0** or newer.
 2. **Requirements**: Set the Deployment Target to **macOS 14.0** or newer.
 3. **App Sandbox**: If enabled, ensure `User Selected File` is set to `Read/Write` in Signing & Capabilities.
-4. Press `Cmd + R` to build and run.
+4. **Command Line Build**:
+   ```bash
+   xcodebuild -scheme EasyRemoveBG -configuration Release -derivedDataPath ./build build
+   ```
+5. **App Icon**: The project uses a 1024x1024 PNG (converted from SVG) for the `AppIcon.appiconset`.
 
 ## Development Conventions
-- **Local-First**: All processing must happen on-device. No network requests.
+- **Local-First**: All processing must happen on-device. No network requests. (Verified: No `URLSession` or network sockets in source).
 - **Color Accuracy**: Disable automatic color management in `CIContext` and `CIImage` to prevent brightness shifts.
 - **Input Priority**: Prioritize `NSURL` objects over raw `NSImage` objects on the pasteboard to ensure high-res file loading.
+- **Project Location**: Currently maintained in `/Users/mac/Documents/macapp/EasyRemoveBG/`.

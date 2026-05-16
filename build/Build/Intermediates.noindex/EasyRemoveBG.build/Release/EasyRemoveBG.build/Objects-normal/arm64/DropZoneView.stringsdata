@@ -1,0 +1,24 @@
+{
+  "source": "/Users/mac/Documents/macapp/EasyRemoveBG/EasyRemoveBG/DropZoneView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Drop or Paste an image",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 23
+        }
+      },
+      {
+        "comment": "",
+        "key": "PNG, JPG, or Cmd + V",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 26
+        }
+      }
+    ]
+  },
+  "version": 1
+}

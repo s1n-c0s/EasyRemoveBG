@@ -1,0 +1,12 @@
+{
+  "/Users/mac/Documents/macapp/EasyRemoveBG/EasyRemoveBG/BackgroundRemover.swift" : {
+    "abi-baseline-json" : "/Users/mac/Documents/macapp/EasyRemoveBG/build/Build/Intermediates.noindex/EasyRemoveBG.build/Release/EasyRemoveBG.build/Objects-normal/arm64/EasyRemoveBG.abi.json",
+    "const-values" : "/Users/mac/Documents/macapp/EasyRemoveBG/build/Build/Intermediates.noindex/EasyRemoveBG.build/Release/EasyRemoveBG.build/Objects-normal/arm64/EasyRemoveBG-primary.swiftconstvalues",
+    "dependencies" : "/Users/mac/Documents/macapp/EasyRemoveBG/build/Build/Intermediates.noindex/EasyRemoveBG.build/Release/EasyRemoveBG.build/Objects-normal/arm64/EasyRemoveBG-primary.d",
+    "diagnostics" : "/Users/mac/Documents/macapp/EasyRemoveBG/build/Build/Intermediates.noindex/EasyRemoveBG.build/Release/EasyRemoveBG.build/Objects-normal/arm64/EasyRemoveBG-primary.dia",
+    "objc-header" : "/Users/mac/Documents/macapp/EasyRemoveBG/build/Build/Intermediates.noindex/EasyRemoveBG.build/Release/EasyRemoveBG.build/Objects-normal/arm64/EasyRemoveBG-Swift.h",
+    "swiftdoc" : "/Users/mac/Documents/macapp/EasyRemoveBG/build/Build/Intermediates.noindex/EasyRemoveBG.build/Release/EasyRemoveBG.build/Objects-normal/arm64/EasyRemoveBG.swiftdoc",
+    "swiftmodule" : "/Users/mac/Documents/macapp/EasyRemoveBG/build/Build/Intermediates.noindex/EasyRemoveBG.build/Release/EasyRemoveBG.build/Objects-normal/arm64/EasyRemoveBG.swiftmodule",
+    "swiftsourceinfo" : "/Users/mac/Documents/macapp/EasyRemoveBG/build/Build/Intermediates.noindex/EasyRemoveBG.build/Release/EasyRemoveBG.build/Objects-normal/arm64/EasyRemoveBG.swiftsourceinfo"
+  }
+}
