@@ -53,33 +53,59 @@ class BackgroundRemover {
             
             // 3. Generate Native AI Mask
             let maskPixelBuffer = try result.generateMask(forInstances: result.allInstances)
-            var maskCI = CIImage(cvPixelBuffer: maskPixelBuffer)
+            let maskCI = CIImage(cvPixelBuffer: maskPixelBuffer)
             
-            // 4. Scale and Align
-            let scaleX = sourceCI.extent.width / maskCI.extent.width
-            let scaleY = sourceCI.extent.height / maskCI.extent.height
-            maskCI = maskCI.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
-                .cropped(to: sourceCI.extent)
+            // 4. High-Quality Edge-Preserving Upsample
+            // Instead of simple scaling, we use the original image as a guide to upscale 
+            // the low-res AI mask. This ensures the mask edges align perfectly with 
+            // the actual pixel boundaries of the subject.
+            let upsampleFilter = CIFilter.edgePreserveUpsample()
+            upsampleFilter.inputImage = sourceCI // High-res Guide
+            upsampleFilter.smallImage = maskCI  // Low-res Mask
+            upsampleFilter.lumaSigma = 0.15
+            upsampleFilter.spatialSigma = 3.0
             
-            // 5. MASK EROSION (Professional finish)
+            var processedMask = upsampleFilter.outputImage ?? maskCI.transformed(by: CGAffineTransform(
+                scaleX: sourceCI.extent.width / maskCI.extent.width,
+                y: sourceCI.extent.height / maskCI.extent.height
+            ))
+            processedMask = processedMask.cropped(to: sourceCI.extent)
+            
+            // 5. MASK EROSION (Eliminate background bleeding/halos)
             let morphologyFilter = CIFilter.morphologyMinimum()
-            morphologyFilter.inputImage = maskCI
-            morphologyFilter.radius = 1.5 
+            morphologyFilter.inputImage = processedMask
+            morphologyFilter.radius = 0.6 // Reduced from 0.8 to preserve more edge detail
             
             if let erodedMask = morphologyFilter.outputImage {
-                maskCI = erodedMask
+                processedMask = erodedMask
             }
             
-            // 6. SOFTEN EDGE
-            maskCI = maskCI.applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 1.0])
-                .cropped(to: sourceCI.extent)
+            // 6. NOISE REDUCTION (Remove jitter/artifacts)
+            let medianFilter = CIFilter.median()
+            medianFilter.inputImage = processedMask
+            if let denoisedMask = medianFilter.outputImage {
+                processedMask = denoisedMask
+            }
             
-            // 7. Blend
+            // 7. SHARP ANTI-ALIASING
+            // By using a smaller blur (0.8) and higher contrast (1.4), we create 
+            // a much sharper transition that still looks smooth on high-res displays.
+            processedMask = processedMask.applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 0.8])
+            
+            let contrastFilter = CIFilter.colorControls()
+            contrastFilter.inputImage = processedMask
+            contrastFilter.contrast = 1.4 // Higher contrast for a sharper "cut"
+            if let finalizedMask = contrastFilter.outputImage {
+                processedMask = finalizedMask
+            }
+            processedMask = processedMask.cropped(to: sourceCI.extent)
+            
+            // 8. Blend
             guard let filter = CIFilter(name: "CIBlendWithMask") else {
                 throw BackgroundRemoverError.failedToApplyMask
             }
             filter.setValue(sourceCI, forKey: kCIInputImageKey)
-            filter.setValue(maskCI, forKey: kCIInputMaskImageKey)
+            filter.setValue(processedMask, forKey: kCIInputMaskImageKey)
             filter.setValue(CIImage.empty(), forKey: kCIInputBackgroundImageKey)
             
             guard let outputCI = filter.outputImage else {
