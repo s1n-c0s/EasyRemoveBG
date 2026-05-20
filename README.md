@@ -2,16 +2,16 @@
 Professional-grade, native macOS application for local image background removal.
 
 ## 🌟 Key Features
-- **High-Fidelity AI Removal**: Native Apple Vision algorithm with zero cloud dependency.
-- **Unified UX**: Drag & drop interface with real-time feedback.
-- **Advanced Inspection**: Rubber-band zoom (1x-15x) and fluid panning.
-- **Performance**: Optimized for Apple Silicon and Neural Engine.
+- **Pro-Grade AI Removal**: High-fidelity edge-preserving upsampling and noise reduction for clean, sharp cutouts.
+- **Unified UX**: Drag & drop interface with real-time feedback and high-speed processing beam.
+- **Advanced Inspection**: Rubber-band zoom (1x-15x) and fluid panning for pixel-perfect review.
+- **Performance**: Fully optimized for Apple Silicon (ANE) with zero-latency inference.
 
 ## 🛠 Building
 Requires **Xcode 15.0+** and **macOS 14.0+**.
 
 ```bash
-xcodebuild -scheme EasyRemoveBG -configuration Release -derivedDataPath ./build build
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -scheme EasyRemoveBG -configuration Release -derivedDataPath ./build build
 ```
 
 ## 🔒 Security & Privacy
