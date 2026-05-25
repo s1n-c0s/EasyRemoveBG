@@ -53,6 +53,6 @@ EasyRemoveBG is a professional-grade, native macOS application for local image b
 
 ## Development Conventions
 - **Local-First**: All processing must happen on-device. No network requests. (Verified: No `URLSession` or network sockets in source).
-- **Color Accuracy**: Disable automatic color management in `CIContext` and `CIImage` to prevent brightness shifts.
+- **Color Accuracy**: Utilize native Core Image color management (avoid `NSNull` working color space) to correctly interpret gamma and HDR metadata, especially for HEIC and P3 images. Always tag the final output `CGImage` with the source image's color space to preserve fidelity.
 - **Input Priority**: Prioritize `NSURL` objects over raw `NSImage` objects on the pasteboard to ensure high-res file loading.
 - **Project Location**: Currently maintained in `/Users/mac/Documents/macapp/EasyRemoveBG/`.
