@@ -112,8 +112,8 @@ class BackgroundRemover {
                 throw BackgroundRemoverError.failedToApplyMask
             }
             
-            // 8. Render final result directly to CGImage
-            guard let finalCG = context.createCGImage(outputCI, from: sourceCI.extent) else {
+            // 8. Render final result directly to CGImage, preserving original color space
+            guard let finalCG = context.createCGImage(outputCI, from: sourceCI.extent, format: .RGBA8, colorSpace: cgImage.colorSpace) else {
                 throw BackgroundRemoverError.failedToApplyMask
             }
             
