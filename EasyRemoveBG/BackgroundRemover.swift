@@ -24,7 +24,7 @@ class BackgroundRemover {
     // Shared CIContext is high-performance and memory-efficient
     private let context = CIContext(options: [
         .useSoftwareRenderer: false,
-        .workingColorSpace: NSNull(), // Disable color management for speed and accuracy
+        .workingColorSpace: NSNull(), // Disable working space to prevent exposure/gamma shifts
         .highQualityDownsample: true,
         .cacheIntermediates: false // Don't cache intermediate images to save memory
     ])
@@ -39,8 +39,9 @@ class BackgroundRemover {
                 throw BackgroundRemoverError.failedToCreateCGImage
             }
             
-            // 2. Load CIImage with color management disabled
-            let sourceCI = CIImage(cgImage: cgImage, options: [CIImageOption.colorSpace: NSNull()])
+            // 2. Load CIImage with color management explicitly disabled (Raw Pixel Mode)
+            // This prevents Core Image from applying any gamma or exposure corrections during loading
+            let sourceCI = CIImage(cgImage: cgImage, options: [.colorSpace: NSNull()])
             
             let request = VNGenerateForegroundInstanceMaskRequest()
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
@@ -56,9 +57,6 @@ class BackgroundRemover {
             let maskCI = CIImage(cvPixelBuffer: maskPixelBuffer)
             
             // 4. High-Quality Edge-Preserving Upsample
-            // Instead of simple scaling, we use the original image as a guide to upscale 
-            // the low-res AI mask. This ensures the mask edges align perfectly with 
-            // the actual pixel boundaries of the subject.
             let upsampleFilter = CIFilter.edgePreserveUpsample()
             upsampleFilter.inputImage = sourceCI // High-res Guide
             upsampleFilter.smallImage = maskCI  // Low-res Mask
@@ -74,7 +72,7 @@ class BackgroundRemover {
             // 5. MASK EROSION (Eliminate background bleeding/halos)
             let morphologyFilter = CIFilter.morphologyMinimum()
             morphologyFilter.inputImage = processedMask
-            morphologyFilter.radius = 0.6 // Reduced from 0.8 to preserve more edge detail
+            morphologyFilter.radius = 0.6
             
             if let erodedMask = morphologyFilter.outputImage {
                 processedMask = erodedMask
@@ -88,32 +86,46 @@ class BackgroundRemover {
             }
             
             // 7. SHARP ANTI-ALIASING
-            // By using a smaller blur (0.8) and higher contrast (1.4), we create 
-            // a much sharper transition that still looks smooth on high-res displays.
             processedMask = processedMask.applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 0.8])
             
             let contrastFilter = CIFilter.colorControls()
             contrastFilter.inputImage = processedMask
-            contrastFilter.contrast = 1.4 // Higher contrast for a sharper "cut"
+            contrastFilter.contrast = 1.4
             if let finalizedMask = contrastFilter.outputImage {
                 processedMask = finalizedMask
             }
             processedMask = processedMask.cropped(to: sourceCI.extent)
             
-            // 8. Blend
-            guard let filter = CIFilter(name: "CIBlendWithMask") else {
-                throw BackgroundRemoverError.failedToApplyMask
-            }
-            filter.setValue(sourceCI, forKey: kCIInputImageKey)
-            filter.setValue(processedMask, forKey: kCIInputMaskImageKey)
-            filter.setValue(CIImage.empty(), forKey: kCIInputBackgroundImageKey)
-            
-            guard let outputCI = filter.outputImage else {
+            // 8. Render the finalized mask to a grayscale CGImage
+            // We use the mask only, so color management doesn't affect the subject pixels
+            guard let maskCG = context.createCGImage(processedMask, from: sourceCI.extent, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray()) else {
                 throw BackgroundRemoverError.failedToApplyMask
             }
             
-            // 8. Render final result directly to CGImage, preserving original color space
-            guard let finalCG = context.createCGImage(outputCI, from: sourceCI.extent, format: .RGBA8, colorSpace: cgImage.colorSpace) else {
+            // 9. Use CGContext to perform the final composition
+            // This ensures the original pixels are drawn directly without any CI processing
+            let width = cgImage.width
+            let height = cgImage.height
+            let colorSpace = cgImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
+            
+            guard let renderContext = CGContext(data: nil,
+                                                width: width,
+                                                height: height,
+                                                bitsPerComponent: 8,
+                                                bytesPerRow: 0,
+                                                space: colorSpace,
+                                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+                throw BackgroundRemoverError.failedToApplyMask
+            }
+            
+            // Clip the context using the AI mask
+            let rect = CGRect(x: 0, y: 0, width: width, height: height)
+            renderContext.clip(to: rect, mask: maskCG)
+            
+            // Draw the original image into the clipped area
+            renderContext.draw(cgImage, in: rect)
+            
+            guard let finalCG = renderContext.makeImage() else {
                 throw BackgroundRemoverError.failedToApplyMask
             }
             
