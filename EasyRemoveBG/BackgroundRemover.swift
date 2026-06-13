@@ -105,7 +105,12 @@ class BackgroundRemover {
             let height = cgImage.height
             let colorSpace = cgImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
             let bitsPerComponent = cgImage.bitsPerComponent
-            let bitmapInfo = cgImage.bitmapInfo.isEmpty ? CGImageAlphaInfo.premultipliedLast.rawValue : cgImage.bitmapInfo.rawValue
+            
+            // We MUST ensure the context has an alpha channel for transparency.
+            // We preserve the byte order and other bits but force premultipliedLast alpha.
+            var bitmapInfo = cgImage.bitmapInfo
+            bitmapInfo.remove(.alphaInfoMask)
+            bitmapInfo.insert(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
             
             guard let renderContext = CGContext(data: nil,
                                                 width: width,
@@ -113,8 +118,8 @@ class BackgroundRemover {
                                                 bitsPerComponent: bitsPerComponent,
                                                 bytesPerRow: 0,
                                                 space: colorSpace,
-                                                bitmapInfo: bitmapInfo) else {
-                // Fallback to standard if specific bits/info fail
+                                                bitmapInfo: bitmapInfo.rawValue) else {
+                // Fallback to standard 8-bit RGBA if specific bits/info fail
                 guard let fallbackContext = CGContext(data: nil,
                                                     width: width,
                                                     height: height,
