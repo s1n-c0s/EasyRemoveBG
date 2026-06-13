@@ -24,7 +24,6 @@ class BackgroundRemover {
     // Shared CIContext is high-performance and memory-efficient
     private let context = CIContext(options: [
         .useSoftwareRenderer: false,
-        .workingColorSpace: NSNull(), // Disable working space to prevent exposure/gamma shifts
         .highQualityDownsample: true,
         .cacheIntermediates: false // Don't cache intermediate images to save memory
     ])
@@ -39,9 +38,8 @@ class BackgroundRemover {
                 throw BackgroundRemoverError.failedToCreateCGImage
             }
             
-            // 2. Load CIImage with color management explicitly disabled (Raw Pixel Mode)
-            // This prevents Core Image from applying any gamma or exposure corrections during loading
-            let sourceCI = CIImage(cgImage: cgImage, options: [.colorSpace: NSNull()])
+            // 2. Load CIImage with full color management
+            let sourceCI = CIImage(cgImage: cgImage)
             
             let request = VNGenerateForegroundInstanceMaskRequest()
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
@@ -97,7 +95,6 @@ class BackgroundRemover {
             processedMask = processedMask.cropped(to: sourceCI.extent)
             
             // 8. Render the finalized mask to a grayscale CGImage
-            // We use the mask only, so color management doesn't affect the subject pixels
             guard let maskCG = context.createCGImage(processedMask, from: sourceCI.extent, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray()) else {
                 throw BackgroundRemoverError.failedToApplyMask
             }
@@ -107,29 +104,47 @@ class BackgroundRemover {
             let width = cgImage.width
             let height = cgImage.height
             let colorSpace = cgImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
+            let bitsPerComponent = cgImage.bitsPerComponent
+            
+            // We MUST ensure the context has an alpha channel for transparency.
+            // We preserve the byte order and other bits but force premultipliedLast alpha.
+            var bitmapInfo = cgImage.bitmapInfo
+            bitmapInfo.remove(.alphaInfoMask)
+            bitmapInfo.insert(CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
             
             guard let renderContext = CGContext(data: nil,
                                                 width: width,
                                                 height: height,
-                                                bitsPerComponent: 8,
+                                                bitsPerComponent: bitsPerComponent,
                                                 bytesPerRow: 0,
                                                 space: colorSpace,
-                                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
-                throw BackgroundRemoverError.failedToApplyMask
+                                                bitmapInfo: bitmapInfo.rawValue) else {
+                // Fallback to standard 8-bit RGBA if specific bits/info fail
+                guard let fallbackContext = CGContext(data: nil,
+                                                    width: width,
+                                                    height: height,
+                                                    bitsPerComponent: 8,
+                                                    bytesPerRow: 0,
+                                                    space: colorSpace,
+                                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+                    throw BackgroundRemoverError.failedToApplyMask
+                }
+                return try performComposition(on: fallbackContext, with: cgImage, mask: maskCG, size: image.size)
             }
             
-            // Clip the context using the AI mask
-            let rect = CGRect(x: 0, y: 0, width: width, height: height)
-            renderContext.clip(to: rect, mask: maskCG)
-            
-            // Draw the original image into the clipped area
-            renderContext.draw(cgImage, in: rect)
-            
-            guard let finalCG = renderContext.makeImage() else {
-                throw BackgroundRemoverError.failedToApplyMask
-            }
-            
-            return NSImage(cgImage: finalCG, size: image.size)
+            return try performComposition(on: renderContext, with: cgImage, mask: maskCG, size: image.size)
         }
+    }
+    
+    private func performComposition(on renderContext: CGContext, with cgImage: CGImage, mask: CGImage, size: NSSize) throws -> NSImage {
+        let rect = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
+        renderContext.clip(to: rect, mask: mask)
+        renderContext.draw(cgImage, in: rect)
+        
+        guard let finalCG = renderContext.makeImage() else {
+            throw BackgroundRemoverError.failedToApplyMask
+        }
+        
+        return NSImage(cgImage: finalCG, size: size)
     }
 }
